@@ -53,3 +53,7 @@ Thumbs.db
 # Project specific
 *.log
 .cache/
+
+# checkpoints and model weights
+checkpoints/
+models/
