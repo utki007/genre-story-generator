@@ -57,3 +57,17 @@ Thumbs.db
 # checkpoints and model weights
 checkpoints/
 models/
+*.pt
+*.pth
+*.pkl
+*.ckpt
+*.pt.tar
+*.pt.tar.gz
+*.pt.tar.bz2
+*.pt.tar.xz
+*.pt.tar.lzma
+*.pt.tar.zst
+*.pt.tar.zstd
+*.pt.tar.zstd.gz
+*.pt.tar.zstd.bz2
+*.pt.tar.zstd.xz
