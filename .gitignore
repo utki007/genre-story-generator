@@ -71,3 +71,5 @@ models/
 *.pt.tar.zstd.gz
 *.pt.tar.zstd.bz2
 *.pt.tar.zstd.xz
+
+data/
