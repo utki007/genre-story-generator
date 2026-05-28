@@ -1,188 +1,143 @@
-# MLOps-Driven Genre-Conditioned Story Generation
+# MLOps-Driven Classical Text Generation (GPT From Scratch)
 
-Build a scalable, experiment-driven system for **conditional short-story generation** using transformer models. Given a **genre label** and a **user prompt**, the model generates coherent, genre-consistent stories.
+Build a scalable, experiment-driven system for **autoregressive text generation** using a custom-built, decoder-only Transformer. Trained on the TinyShakespeare dataset, the model learns the spelling, grammar, and structural format of Shakespearean plays to generate coherent, character-accurate continuations.
 
-Unlike a “just train a model” implementation, this project emphasizes **systematic experimentation**, **hyperparameter optimization**, **reproducibility**, **evaluation**, and **deployment** following modern MLOps practices (tracked via Weights & Biases and modular pipelines).
+Unlike a standard notebook tutorial, this project emphasizes **systematic experimentation**, **hyperparameter optimization**, **reproducibility**, and **deployment** following modern MLOps practices (tracked via Weights & Biases and modular pipelines).
 
 ## 1. Overview
 
-The system supports controlled experimentation, automated tuning, and structured evaluation, with full tracking and reproducibility.
+The system supports controlled experimentation, automated hyperparameter tuning, and structured evaluation for a custom PyTorch Language Model, built entirely from scratch and optimized for rapid training cycles.
 
 ## 2. Dataset
 
-- **Source**: Hugging Face dataset: [FareedKhan/1k_stories_100_genre](https://huggingface.co/datasets/FareedKhan/1k_stories_100_genre)
-- **Size**: ~1,000 stories across **100 distinct genres**
-- **Fields per sample**:
-  - genre label
-  - full story text
+* **Source**: Hugging Face / Karpathy repo: `karpathy/tiny_shakespeare`
+* **Size**: ~1MB of text (approx. 40,000 lines / 1 million characters).
+* **Preprocessing Pipeline**:
+* **Tokenization**: Implementation of a Character-level tokenizer (creating a vocabulary of ~65 unique characters) or a minimalist Byte Pair Encoding (BPE).
+* **Chunking**: Splitting the text into contiguous blocks of fixed context length (e.g., `block_size = 64` or `256`).
+* **Data Loaders**: PyTorch `DataLoader` setup for randomized, batched tensor generation.
 
-### Preprocessing
 
-- Convert into `(genre + prompt → story)` pairs
-- Tokenize using a transformer tokenizer
-- Truncate/pad sequences to a fixed length
 
-## 3. Problem formulation
+## 3. Problem Formulation
 
-- **Inputs**: genre label `g`, input prompt `x`
-- **Output**: generated story `y` conditioned on `(g, x)`
+* **Input**: A sequence of text tokens $x_{<t}$.
+* **Output**: The predicted next token $x_t$.
 
-Modeled as: `P(y | x, g)`
+Modeled as standard causal language modeling: $P(x_t | x_{<t})$
 
-where the transformer learns autoregressive conditional generation.
+Where the Transformer learns to maximize the likelihood of the training corpus via autoregressive next-token prediction.
 
-## 4. Model architecture
+## 4. Model Architecture
 
-A vanilla **encoder-decoder Transformer (PyTorch)**.
+A **Decoder-only Transformer (GPT-style)** built from scratch in PyTorch.
 
-### Encoder
+### Components
 
-- Token embeddings
-- Positional encodings
-- Multi-head self-attention layers
-- Feed-forward networks
+* **Embeddings**: Token embeddings + Learned Positional embeddings.
+* **Transformer Blocks**:
+* Causal (Masked) Multi-Head Self-Attention (ensuring tokens only attend to previous tokens).
+* Position-wise Feed-Forward Networks (4x hidden dimension expansion).
+* Layer Normalization (pre-norm formulation) and residual connections.
 
-### Decoder
 
-- Masked self-attention (autoregressive)
-- Cross-attention over encoder outputs
-- Linear projection to vocabulary logits
+* **LM Head**: Final linear projection to the vocabulary logits.
 
-### Genre conditioning
+## 5. Training Strategy
 
-One of:
-- Prepend a special `[GENRE]` token to the input sequence
-- Add a learned genre embedding to token embeddings
+Causal language modeling using standard Cross-Entropy Loss:
 
-## 5. Training strategy
 
-Teacher forcing with cross-entropy loss: `L = - Σ log P(y_t | y_<t, x, g)`
+$$L = - \sum \log P(x_t | x_{<t})$$
 
 ### Enhancements
 
-- Label smoothing
-- Dropout regularization
-- Gradient clipping
-- Mixed precision training (optional)
+* **Mixed Precision Training**: For maximizing GPU utilization.
+* **Gradient Clipping**: To stabilize the training of the from-scratch attention layers.
+* **Learning Rate Scheduling**: Cosine decay with a linear warmup phase.
 
-## 6. MLOps pipeline
+## 6. MLOps Pipeline (Weights & Biases)
 
-### 6.1 Experiment tracking (Weights & Biases)
+Because TinyShakespeare trains rapidly, the project heavily leans into MLOps automation to find the optimal architecture size.
 
-All experiments are tracked in W&B.
+### 6.1 Experiment Tracking
 
-- **Logged metrics**:
-  - training loss, validation loss
-  - perplexity
-  - learning rate schedules
-- **Artifacts**:
-  - generated sample stories
-  - model checkpoints
+All training runs are logged to a central W&B dashboard.
 
-### 6.2 Hyperparameter optimization
+* **Logged Metrics**:
+* Train/Validation Loss
+* Validation Perplexity
+* Tokens processed per second (throughput)
 
-Use **W&B Sweeps** for automated tuning.
 
-- **Hyperparameters**:
-  - learning rate
-  - number of layers
-  - hidden dimension size
-  - number of attention heads
-  - dropout rate
-  - batch size
-  - context length
-- **Objective**:
-  - minimize validation perplexity
-  - maximize generation quality (via metrics + qualitative samples)
+* **Artifacts**:
+* Qualitative text samples generated at the end of each epoch to visualize the model learning structure (e.g., character names, line breaks, words).
 
-### 6.3 Model versioning
 
-Using W&B Artifacts for:
-- versioned model checkpoints
-- best-model tracking
-- reproducible experiment storage
 
-Example versions:
-- `baseline-v1`
-- `sweep-best-v2`
-- `large-model-v3`
+### 6.2 Hyperparameter Optimization
 
-### 6.4 Reproducible training pipeline
+Using **W&B Sweeps** (Bayesian search) for automated tuning.
 
-A modular training pipeline:
-- `config.yaml` → hyperparameters
-- `train.py` → training loop
-- `model.py` → transformer architecture
-- `data.py` → dataset preprocessing
+* **Hyperparameters to Sweep**:
+* Learning rate: (e.g., `1e-4` to `1e-2`)
+* Number of Transformer layers: `n_layers` (e.g., 4 to 8)
+* Hidden dimension size: `d_model` (e.g., 128 to 512)
+* Number of attention heads: `n_heads` (e.g., 4 to 8)
+* Dropout rate: (e.g., 0.1 to 0.3)
 
-This supports reproducibility, consistent comparisons, and scalable tuning.
 
-## 7. Evaluation framework
+* **Objective**:
+* Minimize validation loss without overfitting the small dataset.
 
-### 7.1 Automatic metrics
 
-- Perplexity
-- BLEU
-- ROUGE-L
-- Distinct-n (diversity)
-- Repetition rate
 
-### 7.2 Semantic metrics
+### 6.3 Model Versioning
 
-- BERTScore (embedding-based similarity)
-- Cosine similarity between generated and reference stories
+Using W&B Artifacts to track the lineage of:
 
-### 7.3 Human evaluation (optional)
+* The tokenizer mapping dictionary.
+* Versioned model checkpoints (e.g., `baseline-char-v1`, `sweep-best-v2`).
 
-User study evaluating:
-- coherence
-- creativity
-- genre relevance
+### 6.4 Reproducible Codebase
 
-## 8. Inference & deployment
+A modular, production-ready Python project structure rather than a single Jupyter Notebook:
 
-### 8.1 API service (FastAPI)
+* `config.yaml` → Sweep and run parameters.
+* `model.py` → The from-scratch PyTorch Transformer class.
+* `data.py` → Dataset streaming, encoding, and chunking.
+* `train.py` → The main training loop with W&B hooks.
 
-A REST API for inference:
-- **Input**: genre + prompt
-- **Output**: generated story
+## 7. Evaluation Framework
 
-Example endpoint:
+* **Quantitative**: Validation Loss/Perplexity. (Tracking the gap between Train and Val loss is critical here, as TinyShakespeare is small enough that a large model will quickly memorize it).
+* **Qualitative Generation**: Periodic inference prompts logged as W&B Tables to visually track how quickly the model stops outputting random characters and starts structuring text as proper Shakespearean script (Character Name -> Colon -> Dialogue).
 
-`POST /generate`
+## 8. Inference & Deployment
 
-### 8.2 Interactive UI
+### 8.1 API Service (FastAPI)
 
-A simple UI (Streamlit or Gradio) to:
-- select genre
-- enter prompt
-- generate stories in real time
+A REST API for inference, loading the best W&B model artifact:
 
-## 9. Experimental plan
+* **Input**: A text prompt (e.g., "ROMEO:") and max generation length.
+* **Output**: The autoregressively generated continuation.
 
-| Experiment | Change | Expected outcome |
-|---|---|---|
-| Baseline | vanilla transformer | reference performance |
-| Sweep 1 | learning rate tuning | faster convergence |
-| Sweep 2 | deeper model | improved coherence |
-| Sweep 3 | dropout tuning | reduced overfitting |
-| Sweep 4 | decoding strategies | higher diversity |
+### 8.2 Interactive Script Generator UI
 
-## 10. Expected contributions
+A **Streamlit** dashboard to interact with the deployed model, allowing users to adjust text generation parameters:
 
-- End-to-end transformer-based conditional generation system
-- Automated hyperparameter optimization using W&B Sweeps
-- Full experiment tracking and reproducibility framework
-- Deployment-ready inference system (API + UI)
-- Analysis of trade-offs in generation quality vs model complexity
+* **Temperature** (controlling randomness)
+* **Top-K / Top-P sampling** (preventing degenerate text loops)
 
-## 11. Future work
+## 9. Experimental Plan
 
-- Scale to larger corpora (BookCorpus, WikiText)
-- RLHF-style fine-tuning for story quality improvement
-- Advanced decoding strategies (top-k, nucleus sampling)
-- Multi-turn interactive storytelling system
+| Experiment | Change | Expected Outcome |
+| --- | --- | --- |
+| **Baseline** | `n_layers=4`, `d_model=128`, `n_heads=4` | Learns word boundaries and line breaks; high validation loss. |
+| **Sweep 1** | Tune Learning Rate & Dropout | Faster convergence; regularization prevents early overfitting. |
+| **Sweep 2** | Scale `d_model` and `n_layers` | Identifies the maximum model size the 1MB dataset can support before catastrophic overfitting. |
+| **Final Run** | Train best config with Cosine Decay | Generation of highly coherent, correctly spelled pseudo-Shakespeare. |
 
-## 12. Conclusion
+## 10. Conclusion
 
-This project presents a complete MLOps-driven pipeline for transformer-based story generation, emphasizing reproducibility, scalability, and systematic optimization rather than only model training.
+This project delivers a deep technical understanding of generative AI by building a Transformer from the ground up. By utilizing a compact dataset, the project shifts the focus from raw compute time to mastering production-grade MLOps skills through rigorous W&B tracking, sweeping, and modular deployment.

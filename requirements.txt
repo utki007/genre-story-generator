@@ -9,3 +9,4 @@ jupyter
 ipython
 tqdm
 python-dotenv
+datasets
