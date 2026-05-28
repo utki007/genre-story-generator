@@ -72,4 +72,8 @@ models/
 *.pt.tar.zstd.bz2
 *.pt.tar.zstd.xz
 
+# Weights & Biases local run cache
+data/wandb/
+notebooks/wandb/
+
 data/

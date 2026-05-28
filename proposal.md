@@ -2,7 +2,7 @@
 
 Build a scalable, experiment-driven system for **autoregressive text generation** using a custom-built, decoder-only Transformer. Trained on the TinyShakespeare dataset, the model learns the spelling, grammar, and structural format of Shakespearean plays to generate coherent, character-accurate continuations.
 
-Unlike a standard notebook tutorial, this project emphasizes **systematic experimentation**, **hyperparameter optimization**, **reproducibility**, and **deployment** following modern MLOps practices (tracked via Weights & Biases and modular pipelines).
+Unlike a standard one-off notebook tutorial, this project emphasizes **systematic experimentation**, **hyperparameter optimization**, **reproducibility**, and **deployment** following modern MLOps practices, with all implementation work organized across Jupyter notebooks and tracked via Weights & Biases.
 
 ## 1. Overview
 
@@ -99,32 +99,32 @@ Using W&B Artifacts to track the lineage of:
 * The tokenizer mapping dictionary.
 * Versioned model checkpoints (e.g., `baseline-char-v1`, `sweep-best-v2`).
 
-### 6.4 Reproducible Codebase
+### 6.4 Reproducible Notebook Workflow
 
-A modular, production-ready Python project structure rather than a single Jupyter Notebook:
+The project will be implemented entirely in Jupyter notebooks rather than standalone `.py` files. Reproducibility will come from clear notebook organization, fixed random seeds, W&B configuration logging, and saved artifacts.
 
-* `config.yaml` → Sweep and run parameters.
-* `model.py` → The from-scratch PyTorch Transformer class.
-* `data.py` → Dataset streaming, encoding, and chunking.
-* `train.py` → The main training loop with W&B hooks.
+* `1. Data Exploration.ipynb` → Dataset inspection, statistics, and qualitative examples.
+* `2. Preprocessing.ipynb` → Tokenization, encoding, chunking, and train/validation preparation.
+* `3. Baseline Transformer.ipynb` → From-scratch PyTorch Transformer implementation, training loop, and baseline W&B logging.
+* Additional experiment notebooks → Hyperparameter sweeps, model comparisons, final generation samples, and deployment exploration.
 
 ## 7. Evaluation Framework
 
 * **Quantitative**: Validation Loss/Perplexity. (Tracking the gap between Train and Val loss is critical here, as TinyShakespeare is small enough that a large model will quickly memorize it).
 * **Qualitative Generation**: Periodic inference prompts logged as W&B Tables to visually track how quickly the model stops outputting random characters and starts structuring text as proper Shakespearean script (Character Name -> Colon -> Dialogue).
 
-## 8. Inference & Deployment
+## 8. Inference & Notebook Demo
 
-### 8.1 API Service (FastAPI)
+### 8.1 Notebook-Based Inference
 
-A REST API for inference, loading the best W&B model artifact:
+Inference will be demonstrated inside a Jupyter notebook by loading the best W&B model artifact:
 
 * **Input**: A text prompt (e.g., "ROMEO:") and max generation length.
 * **Output**: The autoregressively generated continuation.
 
-### 8.2 Interactive Script Generator UI
+### 8.2 Interactive Script Generator Notebook
 
-A **Streamlit** dashboard to interact with the deployed model, allowing users to adjust text generation parameters:
+An interactive notebook section will allow users to adjust text generation parameters and compare outputs:
 
 * **Temperature** (controlling randomness)
 * **Top-K / Top-P sampling** (preventing degenerate text loops)
@@ -140,4 +140,4 @@ A **Streamlit** dashboard to interact with the deployed model, allowing users to
 
 ## 10. Conclusion
 
-This project delivers a deep technical understanding of generative AI by building a Transformer from the ground up. By utilizing a compact dataset, the project shifts the focus from raw compute time to mastering production-grade MLOps skills through rigorous W&B tracking, sweeping, and modular deployment.
+This project delivers a deep technical understanding of generative AI by building a Transformer from the ground up. By utilizing a compact dataset, the project shifts the focus from raw compute time to mastering production-grade MLOps skills through rigorous W&B tracking, sweeping, artifact versioning, and a reproducible notebook-based workflow.
