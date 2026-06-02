@@ -25,7 +25,7 @@ python src/ingest-data.py
 | 3 | Baseline Model Architecture |
 | 4 | Hyperparameter Tuning |
 | 5 | Model Training |
-| 6 | Evaluation & Model Comparison |
+| 6 | Evaluation & Model Comparison (exact test ppl, bootstrap CIs, live baseline compare) |
 | 7 | Inference & Interactive Generation |
 | 8 | Deployment & Model Export |
 
