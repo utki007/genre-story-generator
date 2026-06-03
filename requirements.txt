@@ -12,7 +12,6 @@ tqdm
 python-dotenv
 datasets
 pyyaml
-wandb
 fastapi
 uvicorn
 streamlit
