@@ -28,11 +28,11 @@ python src/ingest-data.py
 | 7 | Inference & Interactive Generation |
 | 8 | Deployment & Model Export |
 
-Artifacts land in `data/artifacts/` (`char_vocab.json`, token tensors, `sweep_runs.json`, `sweep_best_config.json`, `gpt_best.pt`, `experiment.json`, `evaluation_report.json`). Figures go to `docs/`. Checkpoints are gitignored; re-run notebooks 2 → 5 to reproduce locally.
+Artifacts land in `data/artifacts/` (`char_vocab.json`, token tensors, `tuning_runs.json`, `best_hparams.json`, `gpt_best.pt`, `experiment.json`, `evaluation_report.json`). Figures go to `docs/`. Checkpoints are gitignored; re-run notebooks 2 → 5 to reproduce locally.
 
 ## Model results
 
-Best config from notebook 4 random search (cached in `sweep_best_config.json`): **7 layers, d_model 128, 8 heads**, character vocab ~65, `block_size` 128. Final cosine-decay training in notebook 5 uses those hyperparameters.
+Best config from notebook 4 Hyperband tuning (cached in `best_hparams.json`): **7 layers, d_model 128, 8 heads**, character vocab ~65, `block_size` 128. Final cosine-decay training in notebook 5 uses those hyperparameters.
 
 | Split | Loss | Perplexity |
 |-------|------|------------|
@@ -48,10 +48,10 @@ Qualitatively, generations follow Shakespearean script structure (`CHARACTER:` h
 
 | Criterion | What we did |
 |-----------|-------------|
-| **Reproducible workflow** | Fixed seeds, JSON experiment logs, saved checkpoints and sweep leaderboards |
-| **Hyperparameter optimization** | In-notebook random search over LR, depth, width, heads, dropout, weight decay, warmup (notebook 4) |
+| **Reproducible workflow** | Fixed seeds, JSON experiment logs, saved checkpoints and tuning leaderboards |
+| **Hyperparameter optimization** | In-notebook Hyperband tuning over LR, depth, width, heads, dropout, weight decay, warmup (notebook 4) |
 | **Deployment / serving** | Export bundle + character-level **streaming** inference; FastAPI `/stream` prototype (notebook 8) |
-| **Rigorous evaluation** | Train/val/**test** metrics, generalization gap, baseline vs sweep-best comparison (notebook 6) |
+| **Rigorous evaluation** | Train/val/**test** metrics, generalization gap, baseline vs tuning-best comparison (notebook 6) |
 | **Explainable AI** | Attention heatmap, input saliency, top-token predictions on a prompt (notebook 6) |
 | **Interactive inference** | Temperature / top-k / top-p controls with `ipywidgets` (notebook 7) |
 
@@ -59,7 +59,7 @@ Qualitatively, generations follow Shakespearean script structure (`CHARACTER:` h
 
 ## Difficulties & fixes
 
-- **Small-corpus overfitting** — Large models memorized quickly; sweep + val/test monitoring and early stopping kept a modest val–train gap.
+- **Small-corpus overfitting** — Large models memorized quickly; tuning + val/test monitoring and early stopping kept a modest val–train gap.
 - **Notebook path resolution** — Running from `notebooks/` vs repo root broke `data/` lookups; added `PROJECT_ROOT` detection in every notebook.
 - **Baseline checkpoint overwrite** — Notebook 5 can replace baseline weights; evaluation documents saving `gpt_baseline.pt` / `baseline_experiment.json` from notebook 3 first.
 - **128-token context in deployment** — Long multi-character transcripts lose coherence; mitigated with `stop_on_double_newline` and shorter turns.
