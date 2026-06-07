@@ -28,7 +28,7 @@ A research-grade, character-conditioned Shakespeare dialogue interface built on 
 └──────────────┴──────────────────────────────┴───────────────────────┘
 ```
 
-Token color coding in generated text: **warm (amber)** = high surprise, **cool (teal)** = low surprise, based on per-token log-probabilities.
+Token color coding in generated text: **warm (amber)** = high surprise, **cool (teal)** = low surprise, based on per-token log-probabilities. Streaming tokens are **GPT-2 BPE subwords** (e.g. `"that"`, `" is"`) — not individual characters.
 
 ---
 
@@ -43,7 +43,7 @@ Token color coding in generated text: **warm (amber)** = high surprise, **cool (
 | State | Zustand | Lightweight; no Redux overhead |
 | HTTP | Axios | REST calls to FastAPI |
 | Build | Vite | Fast HMR |
-| Backend | FastAPI | Inference wrapper around `gpt_best.pt` |
+| Backend | FastAPI | Inference wrapper around `gpt_best.pt` + `bpe_tokenizer/` |
 
 ---
 
@@ -121,7 +121,22 @@ data: {"token": " is", "logprob": -0.21, "perplexity": 1.23}
 data: {"done": true, "full_perplexity": 3.2, "attn_weights": [[...]]}
 ```
 
-Return `attn_weights` only on the final `done` event — it's the averaged last-layer attention over the full sequence (shape: `[seq_len, seq_len]`, downsample to 8×8 before sending).
+Return `attn_weights` only on the final `done` event — it's the averaged last-layer attention over the full sequence (shape: `[seq_len, seq_len]`, downsample to 8×8 before sending). Each streamed `token` is a decoded BPE subword string from GPT-2 tokenization.
+
+### `GET /health` — model and tokenizer status
+
+```json
+{
+  "status": "ok",
+  "model_loaded": true,
+  "tokenizer": "gpt2_bpe",
+  "vocab_size": 50257,
+  "device": "cpu",
+  "error": null
+}
+```
+
+The frontend calls this on mount to show a status badge and disable generation when artifacts are missing.
 
 ### `POST /top_tokens` — next-token distribution
 
@@ -294,7 +309,7 @@ On `md`, add a `<CharacterDrawer>` (slide-in sheet) triggered by a button in the
 ## Getting started
 
 ```bash
-# 1. Run the full ML pipeline first (notebooks 1–5)
+# 1. Run the full ML pipeline first (notebooks 1–5; notebook 2 writes bpe_tokenizer/)
 python src/ingest-data.py
 
 # 2. Start the FastAPI backend

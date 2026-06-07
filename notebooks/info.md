@@ -71,14 +71,14 @@ flowchart LR
 **Purpose:** Convert raw CSV splits into model-ready tensors.
 
 **Covers:**
-- Character-level tokenizer (`stoi`, `itos`, `encode`, `decode`)
-- GPT-2 BPE tokenizer verification (sanity check, not the primary path)
+- GPT-2 BPE tokenizer (`GPT2Tokenizer`) — primary path for notebooks 3–8
+- Char-level vs BPE compression comparison (proposal §4.3)
 - Speaker extraction into per-character corpora
 - Encoding Karpathy train/val/test splits to `.pt` token tensors
 - `block_size` experiment and DataLoader pipeline
 - Encode/decode round-trip QA
 
-**Key outputs:** `char_vocab.json`, `train_ids.pt`, `val_ids.pt`, `test_ids.pt`, `preprocessing_manifest.json`, `character_corpus_stats.csv`
+**Key outputs:** `bpe_tokenizer/`, `tokenizer_manifest.json`, `train_ids.pt`, `val_ids.pt`, `test_ids.pt`, `preprocessing_manifest.json`, `character_corpus_stats.csv`
 
 **Depends on:** Notebook 1 (`selected_characters.json`)
 
@@ -159,7 +159,7 @@ All notebook outputs land under `data/artifacts/`:
 | Path | Produced by |
 |------|-------------|
 | `exploration_*.json`, `speaker_stats.csv`, `selected_characters.json` | Notebook 1 |
-| `char_vocab.json`, `*_ids.pt`, `preprocessing_manifest.json` | Notebook 2 |
+| `bpe_tokenizer/`, `tokenizer_manifest.json`, `*_ids.pt`, `preprocessing_manifest.json` | Notebook 2 |
 | `model/gpt_baseline.pt`, `baseline_experiment.json` | Notebook 3 |
 | `best_hparams.json`, `tuning_runs.json`, `tuning_checkpoints/` | Notebook 4 |
 | `model/gpt_best.pt`, `experiment.json` | Notebook 5 |
@@ -186,7 +186,7 @@ Notebooks 3 and 4 can run in parallel after notebook 2 completes; both must fini
 ## Model at a glance
 
 - **Architecture:** Decoder-only Transformer (GPT-style), implemented entirely in PyTorch within the notebooks
-- **Tokenization:** Character-level (~66 vocab)
+- **Tokenization:** GPT-2 BPE (vocab 50,257)
 - **Conditioning:** Text prefix — `[CHARACTER]: {dialogue}` — not a learned control token
 - **Loss:** Causal language modeling (cross-entropy); perplexity = exp(loss)
 - **Tracking:** Metrics logged locally (JSON + matplotlib); no external experiment tracker in the current notebooks

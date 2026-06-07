@@ -62,16 +62,19 @@ def _require_model():
     if not state.get("loaded"):
         raise HTTPException(
             status_code=503,
-            detail=state.get("error", "Model not loaded. Run notebooks 1–5 first."),
+            detail=state.get("error", "Model not loaded. Run notebooks 2–5 first."),
         )
     return state["model"], state["tokenizer"], state["device"]
 
 
 @app.get("/health")
 def health():
+    tokenizer = state.get("tokenizer")
     return {
         "status": "ok" if state.get("loaded") else "degraded",
         "model_loaded": bool(state.get("loaded")),
+        "tokenizer": getattr(tokenizer, "tokenizer_type", None),
+        "vocab_size": getattr(tokenizer, "vocab_size", None),
         "error": state.get("error"),
         "device": state.get("device"),
     }

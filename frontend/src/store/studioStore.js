@@ -1,19 +1,23 @@
 import { create } from 'zustand'
-
-const DEFAULT_CHARACTERS = ['HAMLET', 'ROMEO', 'JULIET', 'MACBETH', 'OPHELIA']
+import { getHealth } from '../api/client'
+import { SCENE_LENGTH_PRESETS } from '../constants/characters'
 
 export const useStudioStore = create((set, get) => ({
+  activeTab: 'scene',
   prompt: '',
-  characters: [...DEFAULT_CHARACTERS],
-  turns: 2,
-  temperature: 0.7,
+  characters: ['ROMEO', 'JULIET'],
+  sceneLength: 'medium',
+  temperature: 0.8,
   messages: [],
   isGenerating: false,
   error: null,
+  modelStatus: null,
+  healthLoading: true,
 
+  setActiveTab: (activeTab) => set({ activeTab }),
   setPrompt: (prompt) => set({ prompt }),
   setCharacters: (characters) => set({ characters }),
-  setTurns: (turns) => set({ turns }),
+  setSceneLength: (sceneLength) => set({ sceneLength }),
   setTemperature: (temperature) => set({ temperature }),
   setError: (error) => set({ error }),
 
@@ -24,9 +28,32 @@ export const useStudioStore = create((set, get) => ({
 
   clearMessages: () => set({ messages: [], error: null }),
 
-  startRoundtable: async () => {
-    const { prompt, characters, turns, temperature } = get()
+  fetchHealth: async () => {
+    set({ healthLoading: true })
+    try {
+      const { data } = await getHealth()
+      set({ modelStatus: data, healthLoading: false })
+    } catch (err) {
+      set({
+        modelStatus: {
+          status: 'degraded',
+          model_loaded: false,
+          error: err.message || 'Backend unreachable',
+        },
+        healthLoading: false,
+      })
+    }
+  },
+
+  generateScene: async () => {
+    const { prompt, characters, sceneLength, temperature, modelStatus } = get()
     if (!prompt.trim()) return
+    if (modelStatus && !modelStatus.model_loaded) {
+      set({ error: modelStatus.error || 'Model not loaded. Re-run notebooks 2–5.' })
+      return
+    }
+
+    const preset = SCENE_LENGTH_PRESETS[sceneLength] || SCENE_LENGTH_PRESETS.medium
 
     set({ messages: [], isGenerating: true, error: null })
 
@@ -38,16 +65,23 @@ export const useStudioStore = create((set, get) => ({
         body: JSON.stringify({
           prompt: prompt.trim(),
           characters,
-          turns,
+          turns: preset.turns,
           temperature,
           top_k: 40,
-          max_new_tokens: 120,
+          max_new_tokens: preset.max_new_tokens,
         }),
       })
 
       if (!response.ok) {
-        const text = await response.text()
-        throw new Error(text || `Request failed (${response.status})`)
+        let detail = `Request failed (${response.status})`
+        try {
+          const payload = await response.json()
+          detail = payload.detail || detail
+        } catch {
+          const text = await response.text()
+          if (text) detail = text
+        }
+        throw new Error(detail)
       }
 
       const reader = response.body.getReader()

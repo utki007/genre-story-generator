@@ -1,25 +1,23 @@
-"""Character-level tokenizer loaded from char_vocab.json."""
+"""GPT-2 BPE tokenizer loaded from data/artifacts/bpe_tokenizer/."""
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
+
+from transformers import GPT2Tokenizer
 
 
 class Tokenizer:
-    def __init__(self, vocab_path: Path):
-        with open(vocab_path, "r", encoding="utf-8") as f:
-            payload = json.load(f)
-        self.vocab_size = payload["vocab_size"]
-        self.stoi: dict[str, int] = payload["stoi"]
-        self.itos: dict[int, str] = {int(k): v for k, v in payload["itos"].items()}
+    def __init__(self, tokenizer_dir: Path):
+        self._tok = GPT2Tokenizer.from_pretrained(str(tokenizer_dir))
+        self.vocab_size = self._tok.vocab_size
+        self.tokenizer_type = "gpt2_bpe"
 
     def encode(self, text: str) -> list[int]:
-        unknown = self.stoi.get("<UNK>", 0)
-        return [self.stoi.get(ch, unknown) for ch in text]
+        return self._tok.encode(text, add_special_tokens=False)
 
     def decode(self, indices) -> str:
-        return "".join(self.itos[int(i)] for i in indices)
+        return self._tok.decode(list(indices))
 
     def decode_token(self, index: int) -> str:
-        return self.itos[int(index)]
+        return self._tok.decode([int(index)])

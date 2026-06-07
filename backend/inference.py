@@ -35,12 +35,66 @@ def format_prompt(prompt: str, character: str | None) -> str:
     prefix = f"{character.upper()}:"
     stripped = prompt.strip()
     if not stripped:
-        return f"{prefix} "
+        return f"{prefix}\n"
     # Only skip re-prefixing when the final line is already this character's cue.
     last_line = stripped.split("\n")[-1].strip()
     if last_line.upper().startswith(prefix):
         return stripped
     return f"{prefix} {stripped}"
+
+
+def strip_leading_speaker_cue(text: str, character: str | None = None) -> str:
+    """Remove leaked speaker prefixes from model output (e.g. 'IET:' for JULIET)."""
+    text = text.lstrip("\n\r \t")
+    if not text:
+        return text
+
+    char_upper = (character or "").upper()
+    if char_upper:
+        prefix = f"{char_upper}:"
+        if text.upper().startswith(prefix):
+            return text[len(prefix) :].lstrip("\n\r \t")
+        # Partial suffix leaks when the prompt already ends with "JULIET:" etc.
+        for i in range(1, len(char_upper)):
+            suffix = char_upper[i:] + ":"
+            if text.upper().startswith(suffix):
+                return text[len(suffix) :].lstrip("\n\r \t")
+
+    match = re.match(r"^([^\n:]{1,48}):\s*", text)
+    if match and _looks_like_speaker(match.group(1)):
+        return text[match.end() :].lstrip("\n\r \t")
+
+    return text
+
+
+def _decode_generated(tokenizer: Tokenizer, idx: torch.Tensor, start_len: int) -> str:
+    """Decode only newly generated tokens; avoid BPE boundary artifacts."""
+    full = tokenizer.decode(idx[0].tolist())
+    prefix = tokenizer.decode(idx[0, :start_len].tolist())
+    if full.startswith(prefix):
+        return full[len(prefix) :]
+    return tokenizer.decode(idx[0, start_len:].tolist())
+
+
+MIN_PROMPT_TOKENS = 32
+
+
+def _fit_context_window(
+    encoded: list[int], block_size: int, max_new_tokens: int
+) -> tuple[list[int], int]:
+    """Fit prompt and generation budget inside the model context window."""
+    if not encoded:
+        raise ValueError("Prompt encoding is empty")
+
+    max_new = min(max_new_tokens, block_size - 1)
+    min_prompt = min(MIN_PROMPT_TOKENS, block_size - 1)
+    if max_new > block_size - min_prompt:
+        max_new = max(1, block_size - min_prompt)
+
+    max_prompt = max(1, block_size - max_new)
+    if len(encoded) > max_prompt:
+        encoded = encoded[-max_prompt:]
+    return encoded, max_new
 
 
 def _apply_top_k(logits: torch.Tensor, top_k: int) -> torch.Tensor:
@@ -52,20 +106,18 @@ def _apply_top_k(logits: torch.Tensor, top_k: int) -> torch.Tensor:
 
 
 def trim_at_speaker_boundary(text: str, character: str) -> str:
-    """Cut off when the model hands the floor to another speaker."""
-    active = character.upper()
-
+    """Cut off when the model hands the floor to another speaker (or repeats a cue)."""
     match = _SPEAKER_BREAK.search(text)
     if match:
         speaker = match.group(1).strip()
-        if _looks_like_speaker(speaker) and speaker.upper() != active:
+        if _looks_like_speaker(speaker):
             return text[: match.start()].rstrip()
 
     # Stop before a partial cue at end-of-stream, e.g. "\n\nMERCUTIO"
     tail = re.search(r"\n\n+([^\n:]{1,48})$", text)
     if tail:
         speaker = tail.group(1).strip()
-        if _looks_like_speaker(speaker) and speaker.upper() != active:
+        if _looks_like_speaker(speaker):
             return text[: tail.start()].rstrip()
 
     return text
@@ -149,6 +201,8 @@ def _generate_loop(
 
     model.eval()
     for _ in range(max_new_tokens):
+        if idx.size(1) == 0:
+            break
         idx_cond = idx[:, -model.block_size :]
         logits, _ = model(idx_cond, capture_attn=capture_attn)
         if capture_attn:
@@ -164,8 +218,9 @@ def _generate_loop(
         logprobs.append(log_probs[0, next_id.item()].item())
         idx = torch.cat([idx, next_id], dim=1)
 
-        generated = tokenizer.decode(idx[0, start_len:].tolist())
+        generated = _decode_generated(tokenizer, idx, start_len)
         generated = trim_at_speaker_boundary(generated, character)
+        generated = strip_leading_speaker_cue(generated, character)
 
         if should_stop_generation(generated, character):
             break
@@ -208,14 +263,17 @@ def stream_generate(
         logprobs.append(token_logprob)
         idx = torch.cat([idx, next_id], dim=1)
 
-        raw = tokenizer.decode(idx[0, start_len:].tolist())
-        trimmed = trim_at_speaker_boundary(raw, character or "")
+        raw = _decode_generated(tokenizer, idx, start_len)
+        trimmed = strip_leading_speaker_cue(
+            trim_at_speaker_boundary(raw, character or ""),
+            character or "",
+        )
         new_text = trimmed[prev_len:]
         prev_len = len(trimmed)
 
-        for ch in new_text:
+        if new_text:
             running_ppl = math.exp(-sum(logprobs) / len(logprobs))
-            yield {"token": ch, "logprob": token_logprob, "perplexity": running_ppl}
+            yield {"token": new_text, "logprob": token_logprob, "perplexity": running_ppl}
 
         if should_stop_generation(trimmed, character or ""):
             break
@@ -288,17 +346,17 @@ def roundtable_generate(
     for turn in range(turns):
         for character in characters:
             char = character.upper()
-            prompt_text = f"{context}\n\n{char}:"
+            prompt_text = f"{context}\n\n{char}:\n"
             encoded = tokenizer.encode(prompt_text)
-            max_ctx = model.block_size - max_new_tokens
-            if len(encoded) > max_ctx:
-                encoded = encoded[-max_ctx:]
+            encoded, turn_max_tokens = _fit_context_window(
+                encoded, model.block_size, max_new_tokens
+            )
             idx = torch.tensor([encoded], dtype=torch.long, device=device)
             start_len = idx.size(1)
 
             generated, logprobs, _ = _generate_loop(
                 model, tokenizer, idx, device, start_len,
-                char, max_new_tokens, temperature, top_k,
+                char, turn_max_tokens, temperature, top_k,
             )
 
             generated = generated.strip()
