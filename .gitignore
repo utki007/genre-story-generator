@@ -54,6 +54,10 @@ Thumbs.db
 *.log
 .cache/
 
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
 # checkpoints and model weights
 checkpoints/
 models/
