@@ -90,5 +90,3 @@ flowchart LR
 ## Layout
 
 `notebooks/` (pipeline) · `backend/` (FastAPI + GPT) · `frontend/` (Studio UI) · `docs/` (plots) · `run_studio.py` (launcher)
-
-Northwestern University — Generative AI, Q3.
